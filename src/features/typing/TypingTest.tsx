@@ -1,20 +1,26 @@
 import { useEffect, useState, useCallback, type KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { Keyboard } from 'lucide-react'
 import { useTypingEngine } from './useTypingEngine'
 import { TypingDisplay } from './TypingDisplay'
 import { LiveStats } from './LiveStats'
 import { ResultsPanel } from './ResultsPanel'
 import { ModeSelector } from './ModeSelector'
+import { VirtualKeyboard } from './VirtualKeyboard'
 import { Card } from '@/components/ui/Card'
 import { generateTimedText, generateWords } from './textBank'
 import { useAuth } from '@/contexts/AuthContext'
 import { recordPracticeResult } from '@/services/matches'
 import { formatSupabaseError } from '@/lib/errors'
+import { useAppStore } from '@/store/useAppStore'
+import { cn } from '@/lib/cn'
 import type { EngineMode } from './useTypingEngine'
 import type { TypingStats } from '@/types'
 
 export function TypingTest() {
   const { user } = useAuth()
+  const showVirtualKeyboard = useAppStore((s) => s.showVirtualKeyboard)
+  const toggleVirtualKeyboard = useAppStore((s) => s.toggleVirtualKeyboard)
   const [mode, setMode] = useState<EngineMode>('time')
   const [duration, setDuration] = useState<15 | 30 | 60 | 120>(30)
   const [wordCount, setWordCount] = useState<10 | 25 | 50 | 100>(25)
@@ -41,6 +47,9 @@ export function TypingTest() {
             rawWpm: stats.rawWpm,
             accuracy: stats.accuracy,
             mistakes: stats.errors,
+            mode,
+            duration: mode === 'time' ? duration : undefined,
+            wordCount: mode === 'words' ? wordCount : undefined,
           })
           saved = true
         } catch (err) {
@@ -53,7 +62,7 @@ export function TypingTest() {
       }
       setLastResult({ stats, history, saved, saveError })
     },
-    [user]
+    [user, mode, duration, wordCount]
   )
 
   const engine = useTypingEngine({
@@ -136,8 +145,19 @@ export function TypingTest() {
         </>
       ) : (
         <Card className="relative">
-          <div className="mb-6">
+          <div className="mb-6 flex items-center justify-between">
             <LiveStats stats={engine.stats} timeRemaining={engine.timeRemaining} />
+            <button
+              type="button"
+              onClick={toggleVirtualKeyboard}
+              title={showVirtualKeyboard ? 'Hide on-screen keyboard' : 'Show on-screen keyboard'}
+              className={cn(
+                'rounded-md p-1.5 transition-colors',
+                showVirtualKeyboard ? 'text-caret' : 'text-ink-500 hover:text-ink-300'
+              )}
+            >
+              <Keyboard className="size-4" />
+            </button>
           </div>
 
           <div className="cursor-text" onClick={() => engine.inputRef.current?.focus()}>
@@ -160,6 +180,12 @@ export function TypingTest() {
           <p className="mt-4 text-xs text-ink-500">
             tab or esc — restart with new text · ctrl+enter — replay same text
           </p>
+
+          {showVirtualKeyboard && (
+            <div className="mt-6 border-t border-ink-700/60 pt-6">
+              <VirtualKeyboard nextChar={text[engine.typed.length] ?? null} />
+            </div>
+          )}
         </Card>
       )}
     </div>

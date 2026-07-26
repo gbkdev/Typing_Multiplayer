@@ -7,6 +7,12 @@ export async function getProfile(userId: string) {
   return data as unknown as Profile
 }
 
+export async function getProfileByUsername(username: string) {
+  const { data, error } = await supabase.from('profiles').select('*').eq('username', username).single()
+  if (error) throw error
+  return data as unknown as Profile
+}
+
 export async function setUsername(username: string) {
   const { error } = await supabase.rpc('set_username', { p_username: username })
   if (error) throw error

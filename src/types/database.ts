@@ -94,6 +94,9 @@ export interface Database {
           mistakes: number
           position: number
           xp: number
+          mode: 'time' | 'words'
+          duration: number | null
+          word_count: number | null
           created_at: string
         }
         Insert: Partial<Database['public']['Tables']['match_results']['Row']> & {
@@ -105,6 +108,28 @@ export interface Database {
           position: number
         }
         Update: Partial<Database['public']['Tables']['match_results']['Row']>
+        Relationships: []
+      }
+      practice_results: {
+        Row: {
+          id: string
+          user_id: string
+          wpm: number
+          raw_wpm: number
+          accuracy: number
+          mistakes: number
+          mode: 'time' | 'words'
+          duration: number | null
+          word_count: number | null
+          created_at: string
+        }
+        Insert: Partial<Database['public']['Tables']['practice_results']['Row']> & {
+          user_id: string
+          wpm: number
+          raw_wpm: number
+          accuracy: number
+        }
+        Update: Partial<Database['public']['Tables']['practice_results']['Row']>
         Relationships: []
       }
       friendships: {
@@ -127,7 +152,7 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          type: 'friend_request' | 'friend_accepted' | 'room_invite' | 'achievement' | 'system'
+          type: 'friend_request' | 'friend_accepted' | 'room_invite' | 'achievement' | 'system' | 'direct_message'
           payload: Json
           read: boolean
           created_at: string
@@ -179,6 +204,23 @@ export interface Database {
         }
         Insert: Partial<Database['public']['Tables']['daily_stats']['Row']> & { user_id: string; date: string }
         Update: Partial<Database['public']['Tables']['daily_stats']['Row']>
+        Relationships: []
+      }
+      direct_messages: {
+        Row: {
+          id: string
+          sender_id: string
+          recipient_id: string
+          content: string
+          read_at: string | null
+          created_at: string
+        }
+        Insert: Partial<Database['public']['Tables']['direct_messages']['Row']> & {
+          sender_id: string
+          recipient_id: string
+          content: string
+        }
+        Update: Partial<Database['public']['Tables']['direct_messages']['Row']>
         Relationships: []
       }
     }
@@ -275,8 +317,32 @@ export interface Database {
           p_raw_wpm: number
           p_accuracy: number
           p_mistakes: number
+          p_mode?: string
+          p_duration?: number | null
+          p_word_count?: number | null
         }
         Returns: undefined
+      }
+      leaderboard_query: {
+        Args: {
+          p_period?: string
+          p_mode?: string
+          p_duration?: number | null
+          p_word_count?: number | null
+          p_limit?: number
+        }
+        Returns: {
+          user_id: string
+          username: string
+          avatar_url: string | null
+          country: string | null
+          level: number
+          best_wpm: number
+          best_raw_wpm: number
+          best_accuracy: number
+          races: number
+          achieved_at: string
+        }[]
       }
       find_room_by_code: {
         Args: { p_code: string }
@@ -285,6 +351,22 @@ export interface Database {
       generate_room_code: {
         Args: Record<string, never>
         Returns: string
+      }
+      list_conversations: {
+        Args: Record<string, never>
+        Returns: {
+          other_user_id: string
+          other_username: string
+          other_avatar_url: string | null
+          last_content: string
+          last_created_at: string
+          last_sender_id: string
+          unread_count: number
+        }[]
+      }
+      mark_conversation_read: {
+        Args: { p_other_user_id: string }
+        Returns: undefined
       }
     }
     Enums: Record<string, never>

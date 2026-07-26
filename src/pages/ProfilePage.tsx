@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { Loader2 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
+import { cn } from '@/lib/cn'
+import { countryFlag } from '@/lib/flag'
 import { AchievementBadge } from '@/features/profile/AchievementBadge'
 import { ActivityHeatmap } from '@/features/profile/ActivityHeatmap'
 import { FriendsPanel } from '@/features/profile/FriendsPanel'
 import { ProfileUsernameEditor } from '@/features/profile/ProfileUsernameEditor'
+import { AccountSettingsPanel } from '@/features/profile/AccountSettingsPanel'
 import { getProfile, getUserAchievements, getDailyActivity } from '@/services/profile'
 import { supabase } from '@/lib/supabase'
 import type { Profile } from '@/types'
@@ -22,12 +26,24 @@ interface AchievementCatalogItem {
   icon: string
 }
 
+const tabs = [
+  { key: 'stats', label: 'User stats' },
+  { key: 'friends', label: 'Friends' },
+  { key: 'settings', label: 'Account settings' },
+] as const
+
+type TabKey = (typeof tabs)[number]['key']
+
 export function ProfilePage() {
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [catalog, setCatalog] = useState<AchievementCatalogItem[]>([])
   const [earned, setEarned] = useState<Set<string>>(new Set())
   const [activity, setActivity] = useState<{ date: string; races: number }[]>([])
+
+  const tabParam = searchParams.get('tab')
+  const activeTab: TabKey = tabs.some((t) => t.key === tabParam) ? (tabParam as TabKey) : 'stats'
 
   useEffect(() => {
     if (!user) return
@@ -59,38 +75,72 @@ export function ProfilePage() {
           {profile.username[0]?.toUpperCase()}
         </div>
         <div>
-          <h1 className="font-mono text-xl text-ink-100">{profile.username}</h1>
+          <h1 className="flex items-center gap-2 font-mono text-xl text-ink-100">
+            {profile.country && <span aria-hidden="true">{countryFlag(profile.country)}</span>}
+            {profile.username}
+            <span className="rounded bg-caret/15 px-1.5 py-0.5 font-mono text-xs font-semibold text-caret">
+              Lv {profile.level}
+            </span>
+          </h1>
           <p className="text-sm text-ink-500">
-            Level {profile.level} · {profile.xp} XP · Joined {new Date(profile.created_at).toLocaleDateString()}
+            {profile.xp} XP · Joined {new Date(profile.created_at).toLocaleDateString()}
           </p>
+          {profile.bio && <p className="mt-1 max-w-md text-sm text-ink-400">{profile.bio}</p>}
         </div>
       </div>
 
-      <ProfileUsernameEditor currentUsername={profile.username} onUpdated={(u) => setProfile({ ...profile, username: u })} />
-
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-        <Stat label="races" value={profile.total_races} />
-        <Stat label="wins" value={profile.wins} />
-        <Stat label="avg wpm" value={Math.round(profile.average_wpm)} />
-        <Stat label="best wpm" value={Math.round(profile.highest_wpm)} accent />
-        <Stat label="avg accuracy" value={`${Math.round(profile.average_accuracy)}%`} />
+      <div className="flex gap-1 glass-panel w-fit px-1.5 py-1.5">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setSearchParams({ tab: t.key })}
+            className={cn(
+              'rounded-lg px-3 py-1.5 text-sm font-mono transition-colors',
+              activeTab === t.key ? 'bg-caret text-ink-950' : 'text-ink-400 hover:text-ink-100'
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      <Card>
-        <h2 className="mb-3 text-xs uppercase tracking-widest text-ink-500">Activity</h2>
-        <ActivityHeatmap data={activity} />
-      </Card>
+      {activeTab === 'stats' && (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+            <Stat label="races" value={profile.total_races} />
+            <Stat label="wins" value={profile.wins} />
+            <Stat label="avg wpm" value={Math.round(profile.average_wpm)} />
+            <Stat label="best wpm" value={Math.round(profile.highest_wpm)} accent />
+            <Stat label="avg accuracy" value={`${Math.round(profile.average_accuracy)}%`} />
+          </div>
 
-      <div>
-        <h2 className="mb-3 text-xs uppercase tracking-widest text-ink-500">Achievements</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {catalog.map((a) => (
-            <AchievementBadge key={a.id} {...a} earned={earned.has(a.id)} />
-          ))}
-        </div>
-      </div>
+          <Card>
+            <h2 className="mb-3 text-xs uppercase tracking-widest text-ink-500">Activity</h2>
+            <ActivityHeatmap data={activity} />
+          </Card>
 
-      <FriendsPanel userId={user.id} />
+          <div>
+            <h2 className="mb-3 text-xs uppercase tracking-widest text-ink-500">Achievements</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {catalog.map((a) => (
+                <AchievementBadge key={a.id} {...a} earned={earned.has(a.id)} />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {activeTab === 'friends' && <FriendsPanel userId={user.id} />}
+
+      {activeTab === 'settings' && (
+        <>
+          <ProfileUsernameEditor
+            currentUsername={profile.username}
+            onUpdated={(u) => setProfile({ ...profile, username: u })}
+          />
+          <AccountSettingsPanel profile={profile} onUpdated={(updates) => setProfile({ ...profile, ...updates })} />
+        </>
+      )}
     </div>
   )
 }

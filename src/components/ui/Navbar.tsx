@@ -1,10 +1,14 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Keyboard, Trophy, Users, User, LogIn, LogOut } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { Keyboard, Trophy, Users, LogIn, MessageCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import { signOut } from '@/services/auth'
+import { listConversations, subscribeToInbox } from '@/services/messages'
+import { getProfile } from '@/services/profile'
 import { cn } from '@/lib/cn'
 import { NotificationBell } from './NotificationBell'
 import { SettingsMenu } from './SettingsMenu'
+import { ProfileMenu } from './ProfileMenu'
+import type { Profile } from '@/types'
 
 const links = [
   { to: '/', label: 'Type', icon: Keyboard },
@@ -14,13 +18,31 @@ const links = [
 
 export function Navbar() {
   const { pathname } = useLocation()
-  const navigate = useNavigate()
   const { user } = useAuth()
+  const [unreadMessages, setUnreadMessages] = useState(0)
+  const [profile, setProfile] = useState<Profile | null>(null)
 
-  async function handleSignOut() {
-    await signOut()
-    navigate('/')
-  }
+  useEffect(() => {
+    if (!user) {
+      setProfile(null)
+      return
+    }
+    getProfile(user.id)
+      .then(setProfile)
+      .catch(() => setProfile(null))
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    const refresh = () => {
+      listConversations()
+        .then((convos) => setUnreadMessages(convos.reduce((sum, c) => sum + c.unread_count, 0)))
+        .catch(() => setUnreadMessages(0))
+    }
+    refresh()
+    const unsubscribe = subscribeToInbox(user.id, refresh)
+    return unsubscribe
+  }, [user])
 
   return (
     <header className="sticky top-0 z-40 border-b border-ink-800/80 bg-ink-950/80 backdrop-blur-xl">
@@ -45,28 +67,41 @@ export function Navbar() {
               <span className="hidden md:inline">{label}</span>
             </Link>
           ))}
+          {user && (
+            <Link
+              to="/messages"
+              title="Messages"
+              className={cn(
+                'relative flex items-center gap-1.5 rounded-lg px-2 sm:px-3 py-1.5 text-sm text-ink-400 hover:text-ink-100 hover:bg-ink-800/60 transition-colors',
+                pathname.startsWith('/messages') && 'text-caret bg-ink-800/60'
+              )}
+            >
+              <MessageCircle className="size-4" />
+              <span className="hidden md:inline">Messages</span>
+              {unreadMessages > 0 && (
+                <span className="absolute right-0.5 top-0.5 flex size-3.5 items-center justify-center rounded-full bg-caret text-[9px] font-bold text-ink-950 md:static md:ml-0.5">
+                  {unreadMessages > 9 ? '9+' : unreadMessages}
+                </span>
+              )}
+            </Link>
+          )}
         </nav>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <SettingsMenu />
           <NotificationBell />
-          {user && (
-            <button
-              onClick={handleSignOut}
-              title="Sign out"
-              className="hidden sm:flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-ink-400 hover:text-ink-100 hover:bg-ink-800/60 transition-colors"
+          {user && profile ? (
+            <ProfileMenu profile={profile} />
+          ) : (
+            <Link
+              to="/login"
+              title="Sign in"
+              className="flex items-center gap-1.5 rounded-lg px-2 sm:px-3 py-1.5 text-sm text-ink-300 hover:text-ink-100 hover:bg-ink-800/60 transition-colors"
             >
-              <LogOut className="size-4" />
-            </button>
+              <LogIn className="size-4" />
+              <span className="hidden md:inline">Sign in</span>
+            </Link>
           )}
-          <Link
-            to={user ? '/profile' : '/login'}
-            title={user ? 'Profile' : 'Sign in'}
-            className="flex items-center gap-1.5 rounded-lg px-2 sm:px-3 py-1.5 text-sm text-ink-300 hover:text-ink-100 hover:bg-ink-800/60 transition-colors"
-          >
-            {user ? <User className="size-4" /> : <LogIn className="size-4" />}
-            <span className="hidden md:inline">{user ? 'Profile' : 'Sign in'}</span>
-          </Link>
         </div>
       </div>
     </header>

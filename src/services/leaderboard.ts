@@ -1,48 +1,38 @@
 import { supabase } from '@/lib/supabase'
 
 export type LeaderboardPeriod = 'daily' | 'weekly' | 'monthly' | 'all_time'
+export type LeaderboardMode = 'time' | 'words'
 
-const viewByPeriod: Record<LeaderboardPeriod, 'leaderboard_daily' | 'leaderboard_weekly' | 'leaderboard_monthly' | 'leaderboard_all_time'> = {
-  daily: 'leaderboard_daily',
-  weekly: 'leaderboard_weekly',
-  monthly: 'leaderboard_monthly',
-  all_time: 'leaderboard_all_time',
+export interface LeaderboardRow {
+  user_id: string
+  username: string
+  avatar_url: string | null
+  country: string | null
+  level: number
+  best_wpm: number
+  best_raw_wpm: number
+  best_accuracy: number
+  races: number
+  achieved_at: string
 }
 
-const PAGE_SIZE = 1000
+export interface LeaderboardParams {
+  period: LeaderboardPeriod
+  mode: LeaderboardMode
+  duration?: number
+  wordCount?: number
+  limit?: number
+}
 
-export async function fetchLeaderboard(period: LeaderboardPeriod, limit?: number) {
-  const view = viewByPeriod[period]
-  const orderKey = period === 'all_time' ? 'highest_wpm' : 'best_wpm'
-
-  // If a caller wants a specific top-N slice, keep the simple single query.
-  if (limit) {
-    const { data, error } = await supabase
-      .from(view)
-      .select('*')
-      .order(orderKey, { ascending: false })
-      .limit(limit)
-    if (error) throw error
-    return data
-  }
-
-  // Otherwise page through the view so every player shows up — PostgREST
-  // silently caps a single unbounded request at its configured max-rows
-  // (commonly 1000), so a plain `.select('*')` would quietly truncate the
-  // leaderboard once the player base grows past that.
-  const rows: Record<string, unknown>[] = []
-  let from = 0
-  for (;;) {
-    const { data, error } = await supabase
-      .from(view)
-      .select('*')
-      .order(orderKey, { ascending: false })
-      .range(from, from + PAGE_SIZE - 1)
-    if (error) throw error
-    if (!data || data.length === 0) break
-    rows.push(...(data as Record<string, unknown>[]))
-    if (data.length < PAGE_SIZE) break
-    from += PAGE_SIZE
-  }
-  return rows
+export async function fetchLeaderboard(params: LeaderboardParams): Promise<LeaderboardRow[]> {
+  const { period, mode, duration, wordCount, limit = 200 } = params
+  const { data, error } = await supabase.rpc('leaderboard_query', {
+    p_period: period,
+    p_mode: mode,
+    p_duration: mode === 'time' ? (duration ?? 15) : null,
+    p_word_count: mode === 'words' ? (wordCount ?? 25) : null,
+    p_limit: limit,
+  })
+  if (error) throw error
+  return (data ?? []) as LeaderboardRow[]
 }

@@ -13,6 +13,10 @@ const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage').then((m) =>
 const RoomsPage = lazy(() => import('@/pages/RoomsPage').then((m) => ({ default: m.RoomsPage })))
 const RoomPage = lazy(() => import('@/pages/RoomPage').then((m) => ({ default: m.RoomPage })))
 const ProfilePage = lazy(() => import('@/pages/ProfilePage').then((m) => ({ default: m.ProfilePage })))
+const PublicProfilePage = lazy(() =>
+  import('@/pages/PublicProfilePage').then((m) => ({ default: m.PublicProfilePage }))
+)
+const MessagesPage = lazy(() => import('@/pages/MessagesPage').then((m) => ({ default: m.MessagesPage })))
 const SetupUsernamePage = lazy(() =>
   import('@/pages/SetupUsernamePage').then((m) => ({ default: m.SetupUsernamePage }))
 )
@@ -62,6 +66,23 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="messages"
+            element={
+              <ProtectedRoute>
+                <MessagesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="messages/:userId"
+            element={
+              <ProtectedRoute>
+                <MessagesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="u/:username" element={<PublicProfilePage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

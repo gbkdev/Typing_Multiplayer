@@ -73,12 +73,18 @@ export async function recordPracticeResult(result: {
   rawWpm: number
   accuracy: number
   mistakes: number
+  mode: 'time' | 'words'
+  duration?: number
+  wordCount?: number
 }) {
   const { error } = await supabase.rpc('record_practice_result', {
     p_wpm: result.wpm,
     p_raw_wpm: result.rawWpm,
     p_accuracy: result.accuracy,
     p_mistakes: result.mistakes,
+    p_mode: result.mode,
+    p_duration: result.duration ?? null,
+    p_word_count: result.wordCount ?? null,
   })
   if (error) throw error
 }

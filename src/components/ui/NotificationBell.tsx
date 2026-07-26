@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Bell } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { listNotifications, markNotificationRead, subscribeToNotifications } from '@/services/notifications'
@@ -14,6 +15,7 @@ interface Notification {
 
 export function NotificationBell() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<Notification[]>([])
 
@@ -53,6 +55,10 @@ export function NotificationBell() {
                 onClick={() => {
                   markNotificationRead(n.id)
                   setItems((prev) => prev.map((i) => (i.id === n.id ? { ...i, read: true } : i)))
+                  if (n.type === 'direct_message' && typeof n.payload?.sender_id === 'string') {
+                    setOpen(false)
+                    navigate(`/messages/${n.payload.sender_id}`)
+                  }
                 }}
                 className={cn(
                   'block w-full rounded-lg px-3 py-2 text-left text-xs hover:bg-ink-800/60',
@@ -79,6 +85,8 @@ function describeNotification(n: Notification) {
       return 'You were invited to a room.'
     case 'achievement':
       return `Achievement unlocked: ${(n.payload?.achievement_id as string) ?? 'new badge'}!`
+    case 'direct_message':
+      return `New message: ${(n.payload?.preview as string) ?? '...'}`
     default:
       return 'System notification.'
   }

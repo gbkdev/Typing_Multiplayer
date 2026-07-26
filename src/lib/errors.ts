@@ -5,6 +5,9 @@ export function formatSupabaseError(err: unknown, fallback: string): string {
     if (combined.includes('profiles_username_key') || combined.includes('Username is already taken')) {
       return 'Username is already taken. Try another one.'
     }
+    if (combined.includes('row-level security policy') && combined.includes('direct_messages')) {
+      return 'You can only message friends. Send a friend request first.'
+    }
     const parts = [e.message, e.details, e.hint].filter(Boolean)
     if (parts.length > 0) return parts.join(' — ')
   }

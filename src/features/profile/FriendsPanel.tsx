@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { UserPlus, Check, X } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { UserPlus, Check, X, MessageCircle } from 'lucide-react'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -95,7 +96,16 @@ export function FriendsPanel({ userId }: { userId: string }) {
           return (
             <div key={f.id} className="flex items-center gap-2 rounded-lg bg-ink-800/50 px-3 py-2 text-sm">
               <span className="size-2 rounded-full bg-correct" />
-              {other?.username}
+              <span className="flex-1">{other?.username}</span>
+              {other?.id && (
+                <Link
+                  to={`/messages/${other.id}`}
+                  title={`Message ${other.username}`}
+                  className="text-ink-400 hover:text-caret"
+                >
+                  <MessageCircle className="size-4" />
+                </Link>
+              )}
             </div>
           )
         })}

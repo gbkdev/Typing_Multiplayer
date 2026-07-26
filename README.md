@@ -79,17 +79,17 @@ npm run preview      # sanity-check the production build locally
 ```
 src/
   components/ui/     Reusable primitives (Button, Card, Input, Navbar…)
-  features/          Feature-sliced modules: auth, typing, multiplayer, profile
+  features/          Feature-sliced modules: auth, typing, multiplayer, profile, messages
   pages/             Route-level components
   routes/            ProtectedRoute wrapper
   contexts/          AuthContext (Supabase session state)
   store/             Zustand app-settings store (accent color, sound toggles)
-  services/          Supabase data-access layer (rooms, matches, profile, friends…)
+  services/          Supabase data-access layer (rooms, matches, profile, friends, messages…)
   lib/               supabase client, query client, cn() helper, synthesized sound fx
   types/             Domain types + generated-style Database types
 
 supabase/
-  migrations/        Numbered SQL migrations (schema -> RLS -> functions -> realtime -> achievements)
+  migrations/        Numbered SQL migrations (schema -> RLS -> functions -> realtime -> achievements -> DMs)
   seed.sql           Sample texts + achievement catalog for local dev
   config.toml        Local Supabase CLI config
 ```
@@ -101,14 +101,17 @@ supabase/
 - `matches` / `match_results` — a race's snapshot text and each player's final stats; inserting a result triggers profile-stat rollups, daily-stat rollups, and achievement checks server-side.
 - `texts` — the typing content pool (words/quotes), publicly readable.
 - `friendships`, `notifications`, `messages` — social layer; notifications are inserted automatically by triggers on friend-request/accept events.
+- `direct_messages` — player-to-player DMs, separate from in-room race chat (`messages`). Sending requires an accepted friendship; a trigger notifies the recipient, and `list_conversations()` / `mark_conversation_read()` RPCs back the `/messages` inbox UI.
+- `practice_results` — one row per completed solo test (mode/duration/word_count + wpm/accuracy), added in `0012_leaderboard_v2.sql` so the leaderboard can rank by actual test type (e.g. "time 15" vs "time 60") instead of just an all-time best. `match_results` got the same `mode`/`duration`/`word_count` columns so multiplayer races count too. The `leaderboard_query()` function combines both sources, filtered by period + test config, for the `/leaderboard` page's period / scope (everyone vs. friends) / test-type filters.
 - `achievements` / `user_achievements` — catalog + earned records, auto-awarded via a trigger.
 - Leaderboards are SQL views (`leaderboard_daily/weekly/monthly/all_time`) rather than application-computed aggregates, so ranking stays consistent and fast.
 
-All tables have RLS enabled — see `0003_rls.sql` for the full policy set (e.g. private rooms are invisible to non-members except via the invite-code lookup function; chat is scoped to room members; only a room's host can start a race).
+All tables have RLS enabled — see `0003_rls.sql` (and `0011_direct_messages.sql` for DMs) for the full policy set (e.g. private rooms are invisible to non-members except via the invite-code lookup function; chat is scoped to room members; only a room's host can start a race; direct messages are only sendable between friends).
 
 ## Notes on what's stubbed vs. real
 
 - **Auth:** fully wired to Supabase (email/password + Google/GitHub OAuth). OAuth needs provider credentials configured in your Supabase project to actually work.
 - **Sound:** synthesized in-browser via the Web Audio API (no external audio assets to license) — see `src/lib/sounds.ts`.
 - **Text corpus:** a small local word/quote bank ships as a fallback (`src/features/typing/textBank.ts`); multiplayer races pull from the `texts` table instead.
+- **Direct messages:** fully wired (schema, RLS, realtime, inbox UI) — friends-only by design; there's no blocking/reporting flow yet.
 - **Anti-cheat, tournaments, ranked ELO, clans:** not implemented — the schema and service layer are structured so they can be added as additional tables/services without reshaping what's here.
