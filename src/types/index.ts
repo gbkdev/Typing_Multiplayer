@@ -12,6 +12,7 @@ export interface Profile {
   average_accuracy: number
   xp: number
   level: number
+  key_mistake_stats: Record<string, number>
 }
 
 export type RoomVisibility = 'public' | 'private'

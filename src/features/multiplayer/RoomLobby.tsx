@@ -1,8 +1,9 @@
-import { Check, Crown, Copy, LogOut } from 'lucide-react'
+import { useState } from 'react'
+import { Check, Crown, Copy, LogOut, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import { setReady, startRace, leaveRoom } from '@/services/rooms'
+import { setReady, startRace, leaveRoom, deleteRoom } from '@/services/rooms'
 import { RoomChat } from './RoomChat'
 import type { Room, RoomPlayer } from '@/types'
 
@@ -17,6 +18,22 @@ export function RoomLobby({ room, players, userId }: RoomLobbyProps) {
   const isHost = room.host_id === userId
   const self = players.find((p) => p.user_id === userId)
   const allReady = players.length >= 1 && players.every((p) => p.ready || p.user_id === room.host_id)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  async function handleDelete() {
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteRoom(room.id)
+      navigate('/rooms')
+    } catch (err) {
+      setDeleting(false)
+      setConfirmingDelete(false)
+      setDeleteError(err instanceof Error ? err.message : 'Could not delete this room.')
+    }
+  }
 
   return (
     <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
@@ -72,7 +89,27 @@ export function RoomLobby({ room, players, userId }: RoomLobbyProps) {
           >
             <LogOut className="size-4" /> Leave
           </Button>
+          {isHost &&
+            (confirmingDelete ? (
+              <div className="flex items-center gap-2">
+                <Button variant="danger" onClick={handleDelete} disabled={deleting}>
+                  <Trash2 className="size-4" /> {deleting ? 'Deleting…' : 'Confirm delete'}
+                </Button>
+                <button
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={deleting}
+                  className="text-xs text-ink-500 hover:text-ink-300"
+                >
+                  cancel
+                </button>
+              </div>
+            ) : (
+              <Button variant="ghost" className="text-ink-500 hover:text-incorrect" onClick={() => setConfirmingDelete(true)}>
+                <Trash2 className="size-4" /> Delete room
+              </Button>
+            ))}
         </div>
+        {deleteError && <p className="text-xs text-incorrect">{deleteError}</p>}
       </Card>
 
       <RoomChat roomId={room.id} userId={userId} />

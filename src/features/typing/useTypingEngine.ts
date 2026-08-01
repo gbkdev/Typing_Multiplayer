@@ -19,13 +19,20 @@ interface WpmSample {
   wpm: number
 }
 
+interface ProgressSample {
+  t: number // seconds elapsed
+  progress: number // 0-1
+}
+
 export function useTypingEngine({ text, mode, duration, onFinish, onProgress }: UseTypingEngineOptions) {
   const [typed, setTyped] = useState('')
   const [startedAt, setStartedAt] = useState<number | null>(null)
   const [finishedAt, setFinishedAt] = useState<number | null>(null)
   const [now, setNow] = useState<number>(Date.now())
   const [errorLog, setErrorLog] = useState<Set<number>>(new Set())
+  const [keyMistakes, setKeyMistakes] = useState<Record<string, number>>({})
   const [wpmHistory, setWpmHistory] = useState<WpmSample[]>([])
+  const [progressHistory, setProgressHistory] = useState<ProgressSample[]>([])
   const finishedRef = useRef(false)
   const inputRef = useRef<HTMLInputElement | null>(null)
 
@@ -81,6 +88,7 @@ export function useTypingEngine({ text, mode, duration, onFinish, onProgress }: 
       if (currentSecond === lastSecond) return prev
       return [...prev, { time: currentSecond, wpm: stats.wpm }]
     })
+    setProgressHistory((prev) => [...prev, { t: elapsedSeconds, progress: typed.length / text.length }])
     onProgress?.({ ...stats, progress: typed.length / text.length })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [now])
@@ -119,16 +127,28 @@ export function useTypingEngine({ text, mode, duration, onFinish, onProgress }: 
       // full value at once — are still scored correctly.
       let newlyIncorrect = false
       if (value.length > typed.length) {
+        const newMistakes: Record<string, number> = {}
         setErrorLog((prev) => {
           const next = new Set(prev)
           for (let idx = typed.length; idx < value.length; idx++) {
             if (value[idx] !== text[idx]) {
               next.add(idx)
               newlyIncorrect = true
+              const expected = text[idx]
+              newMistakes[expected] = (newMistakes[expected] ?? 0) + 1
             }
           }
           return next
         })
+        if (Object.keys(newMistakes).length > 0) {
+          setKeyMistakes((prev) => {
+            const next = { ...prev }
+            for (const [key, count] of Object.entries(newMistakes)) {
+              next[key] = (next[key] ?? 0) + count
+            }
+            return next
+          })
+        }
         const { soundEnabled, keyboardSoundsEnabled } = useAppStore.getState()
         if (keyboardSoundsEnabled) sounds.keyPress()
         else if (soundEnabled) (newlyIncorrect ? sounds.incorrect : sounds.correct)()
@@ -148,7 +168,9 @@ export function useTypingEngine({ text, mode, duration, onFinish, onProgress }: 
     setStartedAt(null)
     setFinishedAt(null)
     setErrorLog(new Set())
+    setKeyMistakes({})
     setWpmHistory([])
+    setProgressHistory([])
     finishedRef.current = false
     setNow(Date.now())
     inputRef.current?.focus()
@@ -171,6 +193,8 @@ export function useTypingEngine({ text, mode, duration, onFinish, onProgress }: 
     charStateAt,
     stats: computeStats(),
     wpmHistory,
+    progressHistory,
+    keyMistakes,
     isRunning,
     isFinished: finishedAt !== null,
     timeRemaining,

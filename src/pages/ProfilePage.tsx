@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Target } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { cn } from '@/lib/cn'
 import { countryFlag } from '@/lib/flag'
@@ -10,6 +10,7 @@ import { ActivityHeatmap } from '@/features/profile/ActivityHeatmap'
 import { FriendsPanel } from '@/features/profile/FriendsPanel'
 import { ProfileUsernameEditor } from '@/features/profile/ProfileUsernameEditor'
 import { AccountSettingsPanel } from '@/features/profile/AccountSettingsPanel'
+import { BlockedUsersPanel } from '@/features/profile/BlockedUsersPanel'
 import { getProfile, getUserAchievements, getDailyActivity } from '@/services/profile'
 import { supabase } from '@/lib/supabase'
 import type { Profile } from '@/types'
@@ -68,6 +69,10 @@ export function ProfilePage() {
     )
   }
 
+  const weakKeys = Object.entries(profile.key_mistake_stats ?? {})
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-4">
@@ -119,6 +124,34 @@ export function ProfilePage() {
             <ActivityHeatmap data={activity} />
           </Card>
 
+          <Card>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-xs uppercase tracking-widest text-ink-500">Weak keys</h2>
+              {weakKeys.length > 0 && (
+                <Link to="/?practice=weak" className="flex items-center gap-1.5 text-xs text-caret hover:underline">
+                  <Target className="size-3.5" /> Practice these
+                </Link>
+              )}
+            </div>
+            {weakKeys.length === 0 ? (
+              <p className="text-sm text-ink-500">
+                Not enough data yet — keep typing and we'll spot the keys that trip you up most.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {weakKeys.map(([char, count]) => (
+                  <span
+                    key={char}
+                    className="flex items-center gap-1.5 rounded-lg bg-ink-800 px-2.5 py-1 font-mono text-sm text-ink-100"
+                  >
+                    {char === ' ' ? '␣' : char}
+                    <span className="text-[10px] text-ink-500">{count}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </Card>
+
           <div>
             <h2 className="mb-3 text-xs uppercase tracking-widest text-ink-500">Achievements</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -139,6 +172,7 @@ export function ProfilePage() {
             onUpdated={(u) => setProfile({ ...profile, username: u })}
           />
           <AccountSettingsPanel profile={profile} onUpdated={(updates) => setProfile({ ...profile, ...updates })} />
+          <BlockedUsersPanel userId={user.id} />
         </>
       )}
     </div>

@@ -3,12 +3,12 @@ import { cn } from '@/lib/cn'
 import { KEY_ROWS, FINGER_MAP, resolveChar } from './keyboardData'
 
 interface VirtualKeyboardProps {
-  /** The next character the user needs to type, or null/undefined when idle. */
-  nextChar: string | null | undefined
+  /** The character just typed — highlighted as feedback after each keystroke, rather than showing the upcoming key in advance. */
+  activeChar: string | null | undefined
 }
 
-export function VirtualKeyboard({ nextChar }: VirtualKeyboardProps) {
-  const resolved = useMemo(() => (nextChar ? resolveChar(nextChar) : null), [nextChar])
+export function VirtualKeyboard({ activeChar }: VirtualKeyboardProps) {
+  const resolved = useMemo(() => (activeChar ? resolveChar(activeChar) : null), [activeChar])
 
   const activeBase = resolved?.base ?? null
   const assignment = activeBase ? FINGER_MAP[activeBase] : undefined

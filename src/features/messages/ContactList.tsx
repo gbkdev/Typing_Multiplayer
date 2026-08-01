@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/cn'
+import { parseDuelInvite } from '@/services/messages'
 
 export interface ContactRow {
   userId: string
   username: string
   lastContent?: string
+  lastAttachmentType?: 'image' | 'gif' | 'file' | null
   lastCreatedAt?: string
   lastSenderId?: string
   unreadCount: number
@@ -14,6 +16,18 @@ interface ContactListProps {
   contacts: ContactRow[]
   activeUserId?: string
   currentUserId: string
+}
+
+function attachmentLabel(type: 'image' | 'gif' | 'file' | null | undefined) {
+  if (type === 'image') return '📷 Photo'
+  if (type === 'gif') return '🎞️ GIF'
+  if (type === 'file') return '📎 File'
+  return ''
+}
+
+function previewText(content: string | undefined, attachmentType: ContactRow['lastAttachmentType']) {
+  if (content && parseDuelInvite(content)) return '⚔️ Duel invite'
+  return content || attachmentLabel(attachmentType)
 }
 
 export function ContactList({ contacts, activeUserId, currentUserId }: ContactListProps) {
@@ -53,10 +67,10 @@ export function ContactList({ contacts, activeUserId, currentUserId }: ContactLi
               <span
                 className={cn('block truncate text-xs', c.unreadCount > 0 ? 'text-ink-200' : 'text-ink-500')}
               >
-                {c.lastContent ? (
+                {c.lastContent || c.lastAttachmentType ? (
                   <>
                     {isMine && <span className="text-ink-600">you: </span>}
-                    {c.lastContent}
+                    {previewText(c.lastContent, c.lastAttachmentType)}
                   </>
                 ) : (
                   'Say hi 👋'

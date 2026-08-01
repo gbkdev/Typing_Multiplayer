@@ -10,6 +10,9 @@ import { HomePage } from '@/pages/HomePage'
 const LoginPage = lazy(() => import('@/pages/LoginPage').then((m) => ({ default: m.LoginPage })))
 const RegisterPage = lazy(() => import('@/pages/RegisterPage').then((m) => ({ default: m.RegisterPage })))
 const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage').then((m) => ({ default: m.LeaderboardPage })))
+const DailyChallengePage = lazy(() =>
+  import('@/pages/DailyChallengePage').then((m) => ({ default: m.DailyChallengePage }))
+)
 const RoomsPage = lazy(() => import('@/pages/RoomsPage').then((m) => ({ default: m.RoomsPage })))
 const RoomPage = lazy(() => import('@/pages/RoomPage').then((m) => ({ default: m.RoomPage })))
 const ProfilePage = lazy(() => import('@/pages/ProfilePage').then((m) => ({ default: m.ProfilePage })))
@@ -49,6 +52,7 @@ export default function App() {
             }
           />
           <Route path="leaderboard" element={<LeaderboardPage />} />
+          <Route path="daily" element={<DailyChallengePage />} />
           <Route path="rooms" element={<RoomsPage />} />
           <Route
             path="rooms/:roomId"

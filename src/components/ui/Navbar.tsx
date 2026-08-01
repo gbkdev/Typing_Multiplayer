@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Keyboard, Trophy, Users, LogIn, MessageCircle } from 'lucide-react'
+import { Keyboard, Trophy, Users, LogIn, MessageCircle, CalendarDays } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { listConversations, subscribeToInbox } from '@/services/messages'
 import { getProfile } from '@/services/profile'
@@ -12,6 +12,7 @@ import type { Profile } from '@/types'
 
 const links = [
   { to: '/', label: 'Type', icon: Keyboard },
+  { to: '/daily', label: 'Daily', icon: CalendarDays },
   { to: '/leaderboard', label: 'Leaderboard', icon: Trophy },
   { to: '/rooms', label: 'Multiplayer', icon: Users },
 ]

@@ -45,7 +45,7 @@ export function RoomPage() {
   }
 
   if (!user) return <Navigate to="/login" replace />
-  if (error || !room) return <p className="text-sm text-incorrect">Room not found.</p>
+  if (error || !room) return <p className="text-sm text-incorrect">This room no longer exists — it may have been closed by the host.</p>
 
   if (room.status === 'lobby') {
     return <RoomLobby room={room} players={players} userId={user.id} />

@@ -59,6 +59,7 @@ export function MessagesPage() {
         userId: f.id,
         username: f.username,
         lastContent: convo?.last_content,
+        lastAttachmentType: convo?.last_attachment_type,
         lastCreatedAt: convo?.last_created_at,
         lastSenderId: convo?.last_sender_id,
         unreadCount: convo?.unread_count ?? 0,

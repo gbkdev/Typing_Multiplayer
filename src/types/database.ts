@@ -20,6 +20,7 @@ export interface Database {
           average_accuracy: number
           xp: number
           level: number
+          key_mistake_stats: Record<string, number>
           created_at: string
         }
         Insert: Partial<Database['public']['Tables']['profiles']['Row']> & { id: string; username: string }
@@ -121,6 +122,8 @@ export interface Database {
           mode: 'time' | 'words'
           duration: number | null
           word_count: number | null
+          text_snapshot: string | null
+          progress_snapshot: { t: number; progress: number }[] | null
           created_at: string
         }
         Insert: Partial<Database['public']['Tables']['practice_results']['Row']> & {
@@ -212,15 +215,79 @@ export interface Database {
           sender_id: string
           recipient_id: string
           content: string
+          attachment_path: string | null
+          attachment_type: 'image' | 'gif' | 'file' | null
+          attachment_name: string | null
           read_at: string | null
           created_at: string
         }
         Insert: Partial<Database['public']['Tables']['direct_messages']['Row']> & {
           sender_id: string
           recipient_id: string
-          content: string
         }
         Update: Partial<Database['public']['Tables']['direct_messages']['Row']>
+        Relationships: []
+      }
+      blocks: {
+        Row: {
+          id: string
+          blocker_id: string
+          blocked_id: string
+          created_at: string
+        }
+        Insert: Partial<Database['public']['Tables']['blocks']['Row']> & {
+          blocker_id: string
+          blocked_id: string
+        }
+        Update: Partial<Database['public']['Tables']['blocks']['Row']>
+        Relationships: []
+      }
+      reports: {
+        Row: {
+          id: string
+          reporter_id: string
+          reported_id: string
+          reason: 'spam' | 'harassment' | 'inappropriate_content' | 'cheating' | 'other'
+          details: string | null
+          created_at: string
+        }
+        Insert: Partial<Database['public']['Tables']['reports']['Row']> & {
+          reporter_id: string
+          reported_id: string
+          reason: 'spam' | 'harassment' | 'inappropriate_content' | 'cheating' | 'other'
+        }
+        Update: Partial<Database['public']['Tables']['reports']['Row']>
+        Relationships: []
+      }
+      daily_challenges: {
+        Row: {
+          challenge_date: string
+          text: string
+          created_at: string
+        }
+        Insert: Partial<Database['public']['Tables']['daily_challenges']['Row']> & { text: string }
+        Update: Partial<Database['public']['Tables']['daily_challenges']['Row']>
+        Relationships: []
+      }
+      daily_challenge_results: {
+        Row: {
+          id: string
+          challenge_date: string
+          user_id: string
+          wpm: number
+          raw_wpm: number
+          accuracy: number
+          mistakes: number
+          created_at: string
+        }
+        Insert: Partial<Database['public']['Tables']['daily_challenge_results']['Row']> & {
+          challenge_date: string
+          user_id: string
+          wpm: number
+          raw_wpm: number
+          accuracy: number
+        }
+        Update: Partial<Database['public']['Tables']['daily_challenge_results']['Row']>
         Relationships: []
       }
     }
@@ -320,8 +387,53 @@ export interface Database {
           p_mode?: string
           p_duration?: number | null
           p_word_count?: number | null
+          p_key_mistakes?: Record<string, number>
+          p_text_snapshot?: string | null
+          p_progress_snapshot?: { t: number; progress: number }[] | null
         }
         Returns: undefined
+      }
+      list_ghost_candidates: {
+        Args: {
+          p_mode: string
+          p_duration?: number | null
+          p_word_count?: number | null
+          p_limit?: number
+        }
+        Returns: {
+          id: string
+          wpm: number
+          accuracy: number
+          duration: number | null
+          word_count: number | null
+          text_snapshot: string
+          progress_snapshot: { t: number; progress: number }[]
+          created_at: string
+        }[]
+      }
+      get_daily_challenge: {
+        Args: Record<string, never>
+        Returns: { challenge_date: string; text: string; created_at: string }
+      }
+      submit_daily_challenge_result: {
+        Args: {
+          p_wpm: number
+          p_raw_wpm: number
+          p_accuracy: number
+          p_mistakes: number
+        }
+        Returns: undefined
+      }
+      daily_challenge_leaderboard: {
+        Args: { p_limit?: number }
+        Returns: {
+          user_id: string
+          username: string
+          avatar_url: string | null
+          wpm: number
+          accuracy: number
+          created_at: string
+        }[]
       }
       leaderboard_query: {
         Args: {
@@ -359,6 +471,7 @@ export interface Database {
           other_username: string
           other_avatar_url: string | null
           last_content: string
+          last_attachment_type: 'image' | 'gif' | 'file' | null
           last_created_at: string
           last_sender_id: string
           unread_count: number

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bell } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
@@ -18,6 +18,7 @@ export function NotificationBell() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<Notification[]>([])
+  const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!user) return
@@ -30,11 +31,20 @@ export function NotificationBell() {
     }
   }, [user])
 
+  useEffect(() => {
+    if (!open) return
+    function onClickAway(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickAway)
+    return () => document.removeEventListener('mousedown', onClickAway)
+  }, [open])
+
   if (!user) return null
   const unreadCount = items.filter((i) => !i.read).length
 
   return (
-    <div className="relative">
+    <div className="relative" ref={ref}>
       <button onClick={() => setOpen((o) => !o)} className="relative text-ink-400 hover:text-ink-100">
         <Bell className="size-4" />
         {unreadCount > 0 && (

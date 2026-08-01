@@ -5,6 +5,9 @@ export interface DirectMessage {
   sender_id: string
   recipient_id: string
   content: string
+  attachment_path: string | null
+  attachment_type: 'image' | 'gif' | 'file' | null
+  attachment_name: string | null
   read_at: string | null
   created_at: string
 }
@@ -14,10 +17,13 @@ export interface Conversation {
   other_username: string
   other_avatar_url: string | null
   last_content: string
+  last_attachment_type: 'image' | 'gif' | 'file' | null
   last_created_at: string
   last_sender_id: string
   unread_count: number
 }
+
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024 // 10 MB, matches the bucket's server-side limit
 
 export async function listConversations(): Promise<Conversation[]> {
   const { data, error } = await supabase.rpc('list_conversations')
@@ -48,6 +54,66 @@ export async function sendDirectMessage(recipientId: string, content: string) {
     .from('direct_messages')
     .insert({ sender_id: senderId, recipient_id: recipientId, content: trimmed })
   if (error) throw error
+}
+
+function attachmentKind(file: File): 'image' | 'gif' | 'file' {
+  if (file.type === 'image/gif') return 'gif'
+  if (file.type.startsWith('image/')) return 'image'
+  return 'file'
+}
+
+/** Upload a file/image/gif to the private dm-attachments bucket and send it as a message. */
+export const DUEL_INVITE_PREFIX = 'duel:'
+
+/** A duel invite is just a direct message whose content is a sentinel + room id — the UI renders it specially. */
+export async function sendDuelInvite(recipientId: string, roomId: string) {
+  await sendDirectMessage(recipientId, `${DUEL_INVITE_PREFIX}${roomId}`)
+}
+
+export function parseDuelInvite(content: string): string | null {
+  return content.startsWith(DUEL_INVITE_PREFIX) ? content.slice(DUEL_INVITE_PREFIX.length) : null
+}
+
+export async function sendDirectAttachment(recipientId: string, file: File, caption?: string) {
+  if (file.size > MAX_ATTACHMENT_BYTES) {
+    throw new Error('That file is too large — attachments are limited to 10 MB.')
+  }
+  const { data: userData } = await supabase.auth.getUser()
+  const senderId = userData.user?.id
+  if (!senderId) throw new Error('Not signed in.')
+
+  const folder = [senderId, recipientId].sort().join('_')
+  const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')
+  const path = `${folder}/${crypto.randomUUID()}-${safeName}`
+
+  const { error: uploadError } = await supabase.storage.from('dm-attachments').upload(path, file, {
+    contentType: file.type || undefined,
+    upsert: false,
+  })
+  if (uploadError) throw uploadError
+
+  const { error } = await supabase.from('direct_messages').insert({
+    sender_id: senderId,
+    recipient_id: recipientId,
+    content: caption?.trim() ?? '',
+    attachment_path: path,
+    attachment_type: attachmentKind(file),
+    attachment_name: file.name,
+  })
+  if (error) throw error
+}
+
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>()
+
+/** Resolve a signed, temporary URL for a private attachment (cached until near expiry). */
+export async function getAttachmentUrl(path: string): Promise<string> {
+  const cached = signedUrlCache.get(path)
+  if (cached && cached.expiresAt > Date.now() + 60_000) return cached.url
+
+  const { data, error } = await supabase.storage.from('dm-attachments').createSignedUrl(path, 3600)
+  if (error) throw error
+  signedUrlCache.set(path, { url: data.signedUrl, expiresAt: Date.now() + 3600 * 1000 })
+  return data.signedUrl
 }
 
 export async function markConversationRead(otherUserId: string) {

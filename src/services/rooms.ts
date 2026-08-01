@@ -20,6 +20,22 @@ export async function joinRoom(roomId: string, userId: string) {
   return data
 }
 
+export async function createDuelRoom(hostId: string) {
+  return createRoom(hostId, 'private', {
+    textMode: 'time',
+    duration: 30,
+    wordCount: null,
+    difficulty: 'medium',
+    maxPlayers: 2,
+    countdownSeconds: 3,
+  })
+}
+
+export async function deleteRoom(roomId: string) {
+  const { error } = await supabase.from('rooms').delete().eq('id', roomId)
+  if (error) throw error
+}
+
 export async function joinRoomByCode(code: string, userId: string) {
   const { data, error } = await supabase.rpc('find_room_by_code', { p_code: code })
   if (error) throw error

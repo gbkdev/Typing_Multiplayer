@@ -1,32 +1,60 @@
 import { supabase } from '@/lib/supabase'
-import { generateTimedText } from '@/features/typing/textBank'
+import { generateTimedText, generateWords } from '@/features/typing/textBank'
+import type { RoomSettings } from '@/types'
 
 export async function beginRaceForRoom(roomId: string) {
-  const { data: texts, error: textError } = await supabase
-    .from('texts')
-    .select('id, content')
-    .order('id')
-    .limit(50)
-  if (textError) throw textError
+  const { data: currentRoom, error: roomFetchError } = await supabase
+    .from('rooms')
+    .select('settings')
+    .eq('id', roomId)
+    .single()
+  if (roomFetchError) throw roomFetchError
 
-  const pick =
-    texts && texts.length > 0
-      ? texts[Math.floor(Math.random() * texts.length)]
-      : { id: null, content: generateTimedText() }
+  const settings = currentRoom.settings as unknown as RoomSettings
+
+  // 'time' and 'words' races need text sized to the race itself — a short
+  // fixed quote runs out well before a "time 15" (or even "time 120") race
+  // is over for anyone typing above ~20 wpm, leaving the timer running with
+  // nothing left to type. Generate a properly-sized buffer instead, same as
+  // solo practice already does.
+  let content: string
+  let textId: string | null = null
+
+  if (settings.textMode === 'words') {
+    content = generateWords(settings.wordCount ?? 25)
+  } else if (settings.textMode === 'time') {
+    // Scale the buffer to the duration so even a very fast typist (~300 wpm)
+    // never runs out of text before the clock does. 5 words/sec ≈ 300 wpm.
+    const wordsNeeded = Math.max(200, Math.ceil((settings.duration ?? 30) * 5))
+    content = generateWords(wordsNeeded)
+  } else {
+    const { data: texts, error: textError } = await supabase
+      .from('texts')
+      .select('id, content')
+      .order('id')
+      .limit(50)
+    if (textError) throw textError
+
+    const pick =
+      texts && texts.length > 0
+        ? texts[Math.floor(Math.random() * texts.length)]
+        : { id: null, content: generateTimedText() }
+    content = pick.content
+    textId = pick.id
+  }
 
   const { data: match, error: matchError } = await supabase
     .from('matches')
     .insert({
       room_id: roomId,
-      text_id: pick.id,
+      text_id: textId,
       started_at: new Date().toISOString(),
     })
     .select()
     .single()
   if (matchError) throw matchError
 
-  const { data: currentRoom } = await supabase.from('rooms').select('settings').eq('id', roomId).single()
-  const mergedSettings = { ...(currentRoom?.settings as object), currentText: pick.content, currentMatchId: match.id }
+  const mergedSettings = { ...settings, currentText: content, currentMatchId: match.id }
 
   const { error: roomError } = await supabase
     .from('rooms')
@@ -34,7 +62,7 @@ export async function beginRaceForRoom(roomId: string) {
     .eq('id', roomId)
   if (roomError) throw roomError
 
-  return { match, text: pick.content }
+  return { match, text: content }
 }
 
 export async function submitMatchResult(
@@ -76,6 +104,9 @@ export async function recordPracticeResult(result: {
   mode: 'time' | 'words'
   duration?: number
   wordCount?: number
+  keyMistakes?: Record<string, number>
+  textSnapshot?: string
+  progressSnapshot?: { t: number; progress: number }[]
 }) {
   const { error } = await supabase.rpc('record_practice_result', {
     p_wpm: result.wpm,
@@ -85,6 +116,35 @@ export async function recordPracticeResult(result: {
     p_mode: result.mode,
     p_duration: result.duration ?? null,
     p_word_count: result.wordCount ?? null,
+    p_key_mistakes: result.keyMistakes ?? {},
+    p_text_snapshot: result.textSnapshot ?? null,
+    p_progress_snapshot: result.progressSnapshot ?? null,
   })
   if (error) throw error
+}
+
+export interface GhostCandidate {
+  id: string
+  wpm: number
+  accuracy: number
+  duration: number | null
+  word_count: number | null
+  text_snapshot: string
+  progress_snapshot: { t: number; progress: number }[]
+  created_at: string
+}
+
+export async function listGhostCandidates(params: {
+  mode: 'time' | 'words'
+  duration?: number
+  wordCount?: number
+}): Promise<GhostCandidate[]> {
+  const { data, error } = await supabase.rpc('list_ghost_candidates', {
+    p_mode: params.mode,
+    p_duration: params.mode === 'time' ? (params.duration ?? null) : null,
+    p_word_count: params.mode === 'words' ? (params.wordCount ?? null) : null,
+    p_limit: 5,
+  })
+  if (error) throw error
+  return (data ?? []) as GhostCandidate[]
 }

@@ -4,13 +4,15 @@ import { Navbar } from '@/components/ui/Navbar'
 import { SetupBanner } from '@/components/ui/SetupBanner'
 import { UsernameGate } from '@/routes/UsernameGate'
 import { useAppStore } from '@/store/useAppStore'
+import { applyTheme } from '@/lib/themes'
 
 export function RootLayout() {
   const accentColor = useAppStore((s) => s.accentColor)
+  const themeId = useAppStore((s) => s.themeId)
 
   useEffect(() => {
-    document.documentElement.style.setProperty('--color-caret', accentColor)
-  }, [accentColor])
+    applyTheme(themeId, accentColor)
+  }, [themeId, accentColor])
 
   return (
     <div className="min-h-screen flex flex-col">
